@@ -1,7 +1,7 @@
 /* Tablero Docente: interfaz. Todo ocurre en el navegador; no se envía ningún dato. */
 (function () {
   'use strict';
-  const { DEFAULTS, analyzeCourse, titleCase } = Analysis;
+  const { DEFAULTS, analyzeCourse, titleCase, corteLabel, corteList } = Analysis;
   const $ = s => document.querySelector(s);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const f1 = v => (v == null ? '—' : v.toFixed(1));
@@ -16,22 +16,35 @@
 
   // ---------- Parámetros por asignatura (se recuerdan en el navegador; no contienen datos de estudiantes)
   const cfgKey = c => 'tablero.cfg.' + c.meta.codigo;
-  function getCfg(c) { try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(cfgKey(c)) || '{}')); } catch (e) { return Object.assign({}, DEFAULTS); } }
+  function getCfg(c) {
+    const base = Object.assign({}, DEFAULTS, c.meta.horas ? { horas: c.meta.horas } : {});
+    try { return Object.assign(base, JSON.parse(localStorage.getItem(cfgKey(c)) || '{}')); } catch (e) { return base; }
+  }
   function setCfg(c, cfg) { try { localStorage.setItem(cfgKey(c), JSON.stringify(cfg)); } catch (e) { /* modo privado */ } }
 
   // ---------- Carga de archivos
   const log = (msg, cls) => { const li = document.createElement('li'); li.className = cls || ''; li.textContent = msg; $('#log').appendChild(li); };
+  const isPdf = f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf';
+  const isXls = f => /\.(xlsx|xls|csv)$/i.test(f.name);
   async function handleFiles(files) {
     $('#log').innerHTML = ''; state.demo = false;
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdf.worker.min.js';
     let ok = 0;
     for (const f of files) {
-      if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') { log(`✗ ${f.name}: no es un PDF`, 'err'); continue; }
       try {
-        const acta = await Parser.readPdf(new Uint8Array(await f.arrayBuffer()), pdfjsLib, f.name);
-        state.actas.push(acta); ok++;
-        log(`✓ ${f.name}: ${acta.meta.asignatura} · ${acta.meta.grupo || ''} · ${acta.students.length} estudiantes`, 'ok');
-      } catch (e) { log(`✗ ${f.name}: ${e.message || 'no se pudo leer'}`, 'err'); }
+        let nuevas;
+        if (isPdf(f)) nuevas = [await Parser.readPdf(new Uint8Array(await f.arrayBuffer()), pdfjsLib, f.name)];
+        else if (isXls(f)) nuevas = ExcelIO.parseWorkbook(XLSX, new Uint8Array(await f.arrayBuffer()), f.name);
+        else { log(`✗ ${f.name}: formato no admitido. Usa PDF (acta de UNIPAZ) o Excel (.xlsx, .xls, .csv).`, 'err'); continue; }
+        for (const acta of nuevas) {
+          state.actas.push(acta); ok++;
+          log(`✓ ${f.name}: ${titleCase(acta.meta.asignatura)} · ${titleCase(acta.meta.grupo || '')} · ${acta.students.length} estudiantes`, 'ok');
+          (acta.warnings || []).slice(0, 6).forEach(w => log(`   ⚠ ${w}`, 'warn')); 
+        }
+      } catch (e) {
+        const extra = isPdf(f) ? ' Si tu PDF es de otro sistema, pasa tus notas a la plantilla de Excel.' : '';
+        log(`✗ ${f.name}: ${e.message || 'no se pudo leer'}${extra}`, 'err');
+      }
     }
     if (ok) buildFromActas();
   }
@@ -111,7 +124,7 @@
     const pend = c.meta.cortes.filter(x => a.rows.some(r => r.pendientes.includes(x.id)));
     const sig = pend.length ? pend[0].id : null;
     let html = `<div class="head"><div><h2>${esc(cursoName(c))} <small style="color:var(--txt2);font-weight:500">· ${esc(titleCase(c.meta.grupo || ''))} (${esc(c.meta.codigo)})</small></h2>
-      <p>${esc(c.meta.periodo || '')} · ${esc(titleCase(c.meta.convocatoria || ''))} · acta del ${esc(c.meta.fecha || '—')} · pesos: ${c.meta.cortes.map(x => `${x.id} ${x.peso}%`).join(' · ')}${state.demo ? ' · <b>datos de ejemplo</b>' : ''}</p></div>${toolbarExport()}</div>`;
+      <p>${[c.meta.periodo, titleCase(c.meta.convocatoria || ''), c.meta.fecha ? (c.meta.origen === 'excel' ? 'datos cargados desde Excel' : 'acta del ' + c.meta.fecha) : '', 'pesos: ' + c.meta.cortes.map(x => `${corteLabel(x.id)} ${x.peso}%`).join(' · ')].filter(Boolean).map(esc).join(' · ')}${state.demo ? ' · <b>datos de ejemplo</b>' : ''}</p></div>${toolbarExport()}</div>`;
     html += paramsHtml(cfg);
     html += `<div class="kpis">
       <div class="kpi"><b>${s.n}</b><span>Estudiantes</span></div>
@@ -130,7 +143,7 @@
       <p class="hint">Marca "Justificada" cuando el estudiante presente enfermedad o fuerza mayor comprobada: el límite sube al ${cfg.limiteJustificado}%.</p></div>`;
     html += `<h2 class="sec">Gráficos</h2><div class="charts">
       <div class="card"><h3>Faltas vs. límite permitido</h3><div class="cbox" id="bx1"><canvas id="ch1"></canvas></div></div>
-      <div class="card"><h3>${sig ? `Nota mínima necesaria en ${sig}` : 'Definitiva por estudiante'}</h3><div class="cbox" id="bx3"><canvas id="ch3"></canvas></div></div>
+      <div class="card"><h3>${sig ? `Nota mínima necesaria en ${corteLabel(sig)}` : 'Definitiva por estudiante'}</h3><div class="cbox" id="bx3"><canvas id="ch3"></canvas></div></div>
       <div class="card"><h3>Notas por corte (ordenadas por promedio)</h3><div class="cbox" id="bx2"><canvas id="ch2"></canvas></div></div>
       <div class="card"><h3>Mapa de riesgo: faltas vs. nota mínima</h3><div class="cbox" style="height:380px"><canvas id="ch4"></canvas></div></div>
       <div class="card"><h3>Distribución de alertas</h3><div class="cbox" style="height:320px"><canvas id="ch5"></canvas></div></div>
@@ -174,7 +187,7 @@
     const kf = keyFn[state.sort.col] || keyFn.sev;
     list.sort((x, y) => { const a1 = kf(x), b1 = kf(y); const d = typeof a1 === 'string' ? a1.localeCompare(b1, 'es') : a1 - b1; return d * state.sort.dir; });
     const th = (col, label) => `<th data-col="${col}" class="${state.sort.col === col ? 'sorted' : ''}" data-dir="${state.sort.dir > 0 ? '▲' : '▼'}">${label}</th>`;
-    let h = `<thead><tr>${th('nombre', 'Estudiante')}${cortes.map(k => th('n:' + k.id, `${k.id} <small>${k.peso}%</small>`)).join('')}${th('faltas', 'Faltas')}${th('pct', '% inasist.')}${th('quedan', 'Le quedan')}<th>Asistencia</th>${th('acum', 'Acumulado')}${th('need', sigId ? `Nota mín. ${sigId}` : 'Definitiva')}<th>Estado nota</th>${th('sev', 'Alerta')}<th>Justificada</th></tr></thead><tbody>`;
+    let h = `<thead><tr>${th('nombre', 'Estudiante')}${cortes.map(k => th('n:' + k.id, `${corteLabel(k.id)} <small>${k.peso}%</small>`)).join('')}${th('faltas', 'Faltas')}${th('pct', '% inasist.')}${th('quedan', 'Le quedan')}<th>Asistencia</th>${th('acum', 'Acumulado')}${th('need', sigId ? `Nota mín. ${corteLabel(sigId)}` : 'Definitiva')}<th>Estado nota</th>${th('sev', 'Alerta')}<th>Justificada</th></tr></thead><tbody>`;
     const asisB = { ok: ['b-ok', 'Normal'], riesgo: ['b-alta', 'En riesgo'], perdida: ['b-critica', 'Pierde (0.0)'] };
     const notaB = { aprobada: ['b-ok', 'Aprobada'], reprobada: ['b-critica', 'Reprobada'], asegurada: ['b-ok', 'Ya aprobó'], normal: ['b-gris', 'Normal'], exigente: ['b-media', 'Exigente'], critica: ['b-alta', 'Crítica'], imposible: ['b-critica', 'No alcanza'] };
     for (const { r, i } of list) {
@@ -191,10 +204,10 @@
   // ---------- Estadística
   function statsHtml(c, a) {
     const s = a.stats, cfg = a.cfg;
-    const rows = s.porCorte.filter(p => p.n > 0).map(p => `<tr><td>${p.id} <small>${p.peso}%</small></td><td>${p.n}</td><td>${f2(p.media)}</td><td>${f2(p.mediana)}</td><td>${f2(p.desv)}</td><td>${f1(p.min)}</td><td>${f1(p.max)}</td><td>${p.n ? Math.round(p.aprueban / p.n * 100) : 0}%</td></tr>`).join('');
+    const rows = s.porCorte.filter(p => p.n > 0).map(p => `<tr><td>${corteLabel(p.id)} <small>${p.peso}%</small></td><td>${p.n}</td><td>${f2(p.media)}</td><td>${f2(p.mediana)}</td><td>${f2(p.desv)}</td><td>${f1(p.min)}</td><td>${f1(p.max)}</td><td>${p.n ? Math.round(p.aprueban / p.n * 100) : 0}%</td></tr>`).join('');
     const r = s.correlFaltasNota; let corr = 'Sin datos suficientes.';
     if (r != null) { const ab = Math.abs(r); const fz = ab < .2 ? 'prácticamente nula' : ab < .4 ? 'débil' : ab < .6 ? 'moderada' : 'fuerte'; corr = `r = ${r.toFixed(2)} (${fz}${ab >= .2 ? (r < 0 ? ': a más faltas, menor promedio' : ': a más faltas, mayor promedio') : ''})`; }
-    const cmp = s.comparacion ? `${s.comparacion.mejoran} mejoraron · ${s.comparacion.empeoran} bajaron · ${s.comparacion.igual} igual (${s.comparacion.de} → ${s.comparacion.a})` : '—';
+    const cmp = s.comparacion ? `${s.comparacion.mejoran} mejoraron · ${s.comparacion.empeoran} bajaron · ${s.comparacion.igual} igual (${corteLabel(s.comparacion.de)} → ${corteLabel(s.comparacion.a)})` : '—';
     return `<div class="stat-grid"><div class="card"><h3>Notas por corte</h3><div class="tablewrap"><table><thead><tr><th>Corte</th><th>n</th><th>Media</th><th>Mediana</th><th>Desv.</th><th>Mín.</th><th>Máx.</th><th>≥ ${cfg.aprobatoria.toFixed(1)}</th></tr></thead><tbody>${rows}</tbody></table></div></div>
       <div class="card"><h3>Resumen del grupo</h3><ul class="stat-list">
         <li><span>Promedio actual (ponderado)</span><b>${f2(s.promedioGrupo)}</b></li><li><span>Mediana / desviación estándar</span><b>${f2(s.medianaGrupo)} / ${f2(s.desvGrupo)}</b></li>
@@ -238,7 +251,7 @@
       const o3 = rows.filter(x => x.r.pendientes.length).sort((x, y) => (y.r.need ?? 0) - (x.r.need ?? 0));
       chart('ch3', { type: 'bar', data: { labels: o3.map(x => shortName(x.r, x.i)), datasets: [{ data: o3.map(x => Math.max(0, Math.min(cfg.notaMax, x.r.need))), backgroundColor: o3.map(x => ({ imposible: C.rojo, critica: C.naranja, exigente: C.ambar, normal: C.azul, asegurada: C.verde })[x.r.nota]) }] },
         options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, lineMarker: { lines: [{ axis: 'x', value: cfg.notaExigente, color: C.naranja, label: `${cfg.notaExigente.toFixed(1)} exigente` }] },
-          tooltip: { callbacks: { label: t => { const r = o3[t.dataIndex].r; return `Necesita ${r.needLabel} en ${r.pendientes.join(' y ')}`; } } } }, scales: { x: { min: 0, max: cfg.notaMax, title: { display: true, text: `Nota mínima en ${sig} para llegar a ${cfg.aprobatoria.toFixed(1)}` } } } } });
+          tooltip: { callbacks: { label: t => { const r = o3[t.dataIndex].r; return `Necesita ${r.needLabel} en ${corteList(r.pendientes)}`; } } } }, scales: { x: { min: 0, max: cfg.notaMax, title: { display: true, text: `Nota mínima en ${corteLabel(sig)} para llegar a ${cfg.aprobatoria.toFixed(1)}` } } } } });
     } else {
       const o3 = rows.slice().sort((x, y) => y.r.definitiva - x.r.definitiva);
       chart('ch3', { type: 'bar', data: { labels: o3.map(x => shortName(x.r, x.i)), datasets: [{ data: o3.map(x => x.r.definitiva), backgroundColor: o3.map(x => x.r.nota === 'aprobada' ? C.verde : C.rojo) }] },
@@ -247,14 +260,14 @@
     // 2 Notas por corte
     const o2 = rows.slice().sort((x, y) => (x.r.promedioActual ?? 0) - (y.r.promedioActual ?? 0)); boxH('bx2', 0, 0, 340);
     const graded = c.meta.cortes.filter(k => a.stats.porCorte.find(p => p.id === k.id).n > 0);
-    chart('ch2', { type: 'bar', data: { labels: o2.map(x => shortName(x.r, x.i)), datasets: graded.map((k, j) => ({ label: `${k.id} (${k.peso}%)`, data: o2.map(x => x.r.notas[k.id]), backgroundColor: CORTE_COLORS[j % 4] })) },
+    chart('ch2', { type: 'bar', data: { labels: o2.map(x => shortName(x.r, x.i)), datasets: graded.map((k, j) => ({ label: `${corteLabel(k.id)} (${k.peso}%)`, data: o2.map(x => x.r.notas[k.id]), backgroundColor: CORTE_COLORS[j % 4] })) },
       options: { responsive: true, maintainAspectRatio: false, plugins: { lineMarker: { lines: [{ axis: 'y', value: cfg.aprobatoria, label: cfg.aprobatoria.toFixed(1) }] } }, scales: { y: { min: 0, max: 5 }, x: { ticks: { maxRotation: 60, minRotation: 45, autoSkip: false } } } } });
     // 4 Mapa de riesgo
     const pts = rows.filter(x => x.r.need != null);
     chart('ch4', { type: 'scatter', data: { datasets: [{ data: pts.map(x => ({ x: x.r.faltas, y: Math.max(0, Math.min(cfg.notaMax + 0.15, x.r.need)), k: x })), pointRadius: 7, pointHoverRadius: 9, backgroundColor: pts.map(x => SEV[x.r.severidad].color) }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, lineMarker: { lines: [{ axis: 'x', value: Analysis.maxFaltas(cfg.horas, cfg.limite) + 0.5, label: 'Límite de faltas' }, { axis: 'y', value: cfg.notaExigente, color: C.naranja, label: 'Exigente' }] },
         tooltip: { callbacks: { label: t => { const k = t.raw.k; return `${dispName(k.r, k.i)}: ${k.r.faltas} faltas, nota mín. ${k.r.needLabel}`; } } } },
-        scales: { x: { title: { display: true, text: 'Faltas acumuladas' }, min: -1, ticks: { stepSize: 1, callback: v => (v >= 0 && Number.isInteger(v) ? v : '') } }, y: { title: { display: true, text: `Nota mínima en ${sig || 'lo que falta'}` }, min: 0, max: cfg.notaMax + 0.3 } } } });
+        scales: { x: { title: { display: true, text: 'Faltas acumuladas' }, min: -1, ticks: { stepSize: 1, callback: v => (v >= 0 && Number.isInteger(v) ? v : '') } }, y: { title: { display: true, text: `Nota mínima en ${sig ? corteLabel(sig) : 'lo que falta'}` }, min: 0, max: cfg.notaMax + 0.3 } } } });
     // 5 Distribución de alertas
     const sc = a.stats.sevCount;
     chart('ch5', { type: 'doughnut', data: { labels: ['critica', 'alta', 'media', 'ok'].map(k => `${SEV[k].label} (${sc[k]})`), datasets: [{ data: ['critica', 'alta', 'media', 'ok'].map(k => sc[k]), backgroundColor: ['critica', 'alta', 'media', 'ok'].map(k => SEV[k].color) }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } });
@@ -263,7 +276,7 @@
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { precision: 0 }, title: { display: true, text: 'Estudiantes' } }, x: { title: { display: true, text: 'Promedio actual' } } } } });
     // 7 Promedio por corte
     const pc = a.stats.porCorte.filter(p => p.n > 0);
-    chart('ch7', { type: 'bar', data: { labels: pc.map(p => p.id), datasets: [{ label: 'Media', data: pc.map(p => p.media), backgroundColor: C.azul }, { label: 'Mediana', data: pc.map(p => p.mediana), backgroundColor: C.verde }] },
+    chart('ch7', { type: 'bar', data: { labels: pc.map(p => corteLabel(p.id)), datasets: [{ label: 'Media', data: pc.map(p => p.media), backgroundColor: C.azul }, { label: 'Mediana', data: pc.map(p => p.mediana), backgroundColor: C.verde }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { lineMarker: { lines: [{ axis: 'y', value: cfg.aprobatoria, label: cfg.aprobatoria.toFixed(1) }] } }, scales: { y: { min: 0, max: 5 } } } });
   }
 
@@ -278,7 +291,7 @@
     p.push(`Llevas ${r.faltas} ${r.faltas === 1 ? 'falta' : 'faltas'} (${r.pct.toFixed(1)}% de la intensidad horaria). Según el Art. 34 del reglamento estudiantil, superar el ${cfg.limite}% sin justificación implica perder la asignatura (máximo ${maxF(r)} faltas).`);
     if (r.asistencia === 'perdida') p.push(r.recuperable ? 'Ya superaste ese límite; si tienes una justificación válida (enfermedad o fuerza mayor) debes presentarla dentro de los 5 días hábiles siguientes ante la coordinación académica.' : 'Por favor acércate a la coordinación académica para revisar tu situación.');
     else if (r.asistencia === 'riesgo') p.push(`Te ${r.quedan === 1 ? 'queda 1 falta' : `quedan ${r.quedan} faltas`} antes de llegar al límite. Es importante que no vuelvas a faltar.`);
-    if (r.pendientes.length && r.nota !== 'asegurada') p.push(r.nota === 'imposible' ? `Con las notas actuales ya no alcanzas la nota aprobatoria (${cfg.aprobatoria.toFixed(1)}). Hablemos de las opciones disponibles.` : `Para aprobar necesitas al menos ${r.needLabel} en ${r.pendientes.join(' y ')}.`);
+    if (r.pendientes.length && r.nota !== 'asegurada') p.push(r.nota === 'imposible' ? `Con las notas actuales ya no alcanzas la nota aprobatoria (${cfg.aprobatoria.toFixed(1)}). Hablemos de las opciones disponibles.` : `Para aprobar necesitas al menos ${r.needLabel} en ${corteList(r.pendientes)}.`);
     p.push('Quedo atento para ayudarte.'); return p.join('\n\n');
   }
   const maxF = r => r.max;
@@ -309,7 +322,7 @@
   function courseRows(c) {
     const a = state.an[c.key]; const cortes = c.meta.cortes;
     const sig = (cortes.find(x => a.rows.some(r => r.pendientes.includes(x.id))) || {}).id;
-    const head = ['Documento', 'Estudiante', ...cortes.map(k => `${k.id} (${k.peso}%)`), 'Faltas', '% inasistencia', 'Faltas máx. permitidas', 'Le quedan', 'Justificada', 'Estado asistencia', 'Acumulado ponderado', sig ? `Nota mínima ${sig}` : 'Definitiva', 'Estado nota', 'Alerta', 'Motivos'];
+    const head = ['Documento', 'Estudiante', ...cortes.map(k => `${corteLabel(k.id)} (${k.peso}%)`), 'Faltas', '% inasistencia', 'Faltas máx. permitidas', 'Le quedan', 'Justificada', 'Estado asistencia', 'Acumulado ponderado', sig ? `Nota mínima ${corteLabel(sig)}` : 'Definitiva', 'Estado nota', 'Alerta', 'Motivos'];
     const lab = { ok: 'Normal', riesgo: 'En riesgo', perdida: 'PIERDE (0.0)' };
     const body = a.rows.map((r, i) => [r.dni, state.anon ? dispName(r, i) : titleCase(r.nombre), ...cortes.map(k => r.notas[k.id]), r.faltas, +r.pct.toFixed(1), r.max, r.quedan, r.justificado ? 'Sí' : 'No', lab[r.asistencia], +r.acumulado.toFixed(2),
       r.pendientes.length ? r.needLabel : +r.definitiva.toFixed(2), r.nota, SEV[r.severidad].label, r.motivos.join(' | ')]);
@@ -344,6 +357,11 @@
   drop.addEventListener('drop', e => handleFiles([...e.dataTransfer.files]));
   $('#tabs').onclick = e => { const b = e.target.closest('.tab'); if (!b) return; state.active = b.dataset.k; render(); };
   $('#btnDemo').onclick = () => { $('#log').innerHTML = ''; state.actas = []; state.just = {}; state.cursos = DemoData(); state.demo = true; log('ℹ Cargados datos de ejemplo (ficticios).', 'warn'); afterLoad(); };
+  $('#btnTpl').onclick = () => XLSX.writeFile(ExcelIO.buildTemplate(XLSX), 'plantilla_notas_tablero_docente.xlsx');
+  (function repoLink() { // si está publicado en GitHub Pages, enlaza al repositorio para proponer mejoras
+    const h = location.hostname, m = /^([^.]+)\.github\.io$/.exec(h), repo = location.pathname.split('/')[1];
+    if (m && repo) { const a = $('#repoLink'); a.href = `https://github.com/${m[1]}/${repo}`; a.hidden = false; }
+  })();
   $('#btnClear').onclick = () => { state.actas = []; state.cursos = []; state.just = {}; state.q = ''; state.sev = ''; state.demo = false; $('#app').hidden = true; $('#btnClear').hidden = true; $('#log').innerHTML = ''; $('#view').innerHTML = ''; };
   window.__tablero = state; // útil para depuración y pruebas
   window.__tableroLoad = cursos => { state.cursos = cursos; state.actas = []; afterLoad(); };

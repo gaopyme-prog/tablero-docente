@@ -13,22 +13,30 @@
     <img src="assets/logo.png" alt="" class="logo" onerror="this.remove()">
     <div>
       <h1>Tablero Docente</h1>
-      <p>Inasistencia, nota mínima por corte, alertas y estadística a partir de las actas parciales</p>
+      <p>Inasistencia, nota mínima por corte, alertas y estadística a partir de las actas parciales o de tu Excel</p>
     </div>
   </div>
   <div class="bar"></div>
 </header>
 
+<div class="ia-banner no-print" role="note">
+  <span class="ia-ico" aria-hidden="true">🤖</span>
+  <p><b>Aplicativo desarrollado con inteligencia artificial.</b> Está disponible para su uso y mejora: úsalo, adáptalo y compártelo con otros docentes.
+  <a id="repoLink" href="#" target="_blank" rel="noopener" hidden>Ver el código y proponer mejoras ↗</a></p>
+</div>
+
 <main>
   <section class="card no-print" id="upload">
     <div id="drop" class="drop" tabindex="0" role="button" aria-label="Subir actas parciales en PDF">
       <div class="drop-ico" aria-hidden="true">⇪</div>
-      <strong>Arrastra aquí las actas parciales (PDF)</strong>
-      <span>o haz clic para elegirlas · puedes subir varias a la vez, de distintas asignaturas</span>
-      <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
+      <strong>Arrastra aquí las actas parciales (PDF) o tu archivo de notas (Excel)</strong>
+      <span>o haz clic para elegirlos · puedes subir varios a la vez, de distintas asignaturas</span>
+      <input type="file" id="file" accept="application/pdf,.pdf,.xlsx,.xls,.csv" multiple hidden>
     </div>
-    <div class="privacy">🔒 Los PDFs se leen <b>en tu computador</b>. No se suben ni se guardan en ningún servidor.</div>
+    <div class="privacy">🔒 Los archivos se leen <b>en tu computador</b>. No se suben ni se guardan en ningún servidor.</div>
+    <p class="hint tpl">¿Tus notas están en otra fuente (tu propio Excel, otro sistema)? Descarga la plantilla modelo, pega tus datos y súbela: <b>acepta PDF de actas de UNIPAZ o Excel (.xlsx, .xls, .csv)</b>.</p>
     <div class="row">
+      <button class="btn azul" id="btnTpl">⬇ Descargar plantilla de Excel</button>
       <button class="btn ghost" id="btnDemo">Probar con datos de ejemplo</button>
       <button class="btn ghost" id="btnClear" hidden>Limpiar todo</button>
     </div>
@@ -59,6 +67,7 @@
 <script src="vendor/chart.umd.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="js/parser.js"></script>
+<script src="js/excel.js"></script>
 <script src="js/analysis.js"></script>
 <script src="js/demo.js"></script>
 <script src="js/app.js"></script>

@@ -16,6 +16,9 @@
     notaExigente: 4.0,     // nota requerida >= esto se considera crítica
   };
 
+  const ORD = { 1: '1er Corte', 2: '2do Corte', 3: '3er Corte', 4: '4to Corte' };
+  const corteLabel = id => ORD[parseInt(String(id).replace(/\D/g, ''), 10)] || String(id);
+  const corteList = ids => ids.map(corteLabel).join(' y ');
   const EPS = 1e-9;
   const maxFaltas = (horas, pct) => Math.floor((horas * pct) / 100 + EPS);
   const ceil1 = x => Math.ceil(x * 10 - EPS) / 10;
@@ -76,8 +79,8 @@
     }
     if (nota === 'imposible') up(3, `Ni con ${cfg.notaMax.toFixed(1)} en lo que falta alcanza ${cfg.aprobatoria.toFixed(1)} (acumulado ${round(acc, 2)}).`);
     else if (nota === 'reprobada') up(3, `Definitiva ${round(definitiva, 2)}: reprueba.`);
-    else if (nota === 'critica') up(2, `Necesita ${needLabel} en ${pend.join(' y ')} para aprobar (acumulado ${round(acc, 2)}).`);
-    else if (nota === 'exigente') up(1, `Necesita ${needLabel} en ${pend.join(' y ')} para aprobar.`);
+    else if (nota === 'critica') up(2, `Necesita ${needLabel} en ${corteList(pend)} para aprobar (acumulado ${round(acc, 2)}).`);
+    else if (nota === 'exigente') up(1, `Necesita ${needLabel} en ${corteList(pend)} para aprobar.`);
 
     return {
       dni: st.dni, nombre: st.nombre, notas, faltas, pct, max, quedan, limitePct, justificado: !!justificado,
@@ -149,5 +152,5 @@
   const titleCase = s => (s || '').toLowerCase().replace(/(^|[\s\-'’.,])([a-záéíóúüñ])/g, (m, a, b) => a + b.toUpperCase())
     .replace(/\b(De|Del|La|Las|Los|Y)\b/g, w => w.toLowerCase()).replace(/\s+,/g, ',').replace(/^./, c => c.toUpperCase());
 
-  return { DEFAULTS, maxFaltas, ceil1, analyzeStudent, analyzeCourse, mean, median, sd, pearson, histogram, titleCase };
+  return { DEFAULTS, corteLabel, corteList, maxFaltas, ceil1, analyzeStudent, analyzeCourse, mean, median, sd, pearson, histogram, titleCase };
 });

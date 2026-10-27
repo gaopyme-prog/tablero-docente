@@ -13,6 +13,10 @@ h1,h2,h3{margin:0;line-height:1.2}
 .top h1{font-size:24px;letter-spacing:.2px}
 .top p{margin:2px 0 0;color:#cfd7ee;font-size:14px}
 .logo{height:52px;background:#fff;border-radius:8px;padding:4px}
+.ia-banner{background:var(--verde-cl);border-bottom:2px solid var(--verde);color:var(--verde-osc)}
+.ia-banner{display:flex;gap:12px;align-items:center;justify-content:center;padding:9px 20px;font-size:14px}
+.ia-banner p{margin:0;max-width:1240px;color:#0b4d27}.ia-banner a{color:var(--azul);font-weight:600;margin-left:6px;white-space:nowrap}
+.ia-ico{font-size:20px}.tpl{margin:0 0 10px}
 .bar{height:5px;background:linear-gradient(90deg,var(--verde) 0 38%,var(--azul-med) 38% 100%)}
 main{max-width:1280px;margin:0 auto;padding:20px}
 footer{max-width:1280px;margin:0 auto;padding:10px 20px 30px;color:var(--txt2);font-size:13px}
@@ -78,7 +82,7 @@ td:first-child{background:#fff} tbody tr:hover td{background:#F7F9FD} tbody tr:h
 .sec::after{content:"";flex:1;height:2px;background:linear-gradient(90deg,var(--verde),transparent)}
 @media (max-width:560px){.charts{grid-template-columns:1fr}.top h1{font-size:20px}}
 @media print{
-  body{background:#fff}.no-print,footer,.top .bar,#rules{display:none!important}
+  body{background:#fff}.ia-banner{display:none}.no-print,footer,.top .bar,#rules{display:none!important}
   .card,.kpi{box-shadow:none;border:1px solid #ccc;break-inside:avoid}.tablewrap{max-height:none;overflow:visible}
   th{position:static;background:var(--azul)!important;color:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .al,.badge,.kpi{-webkit-print-color-adjust:exact;print-color-adjust:exact}

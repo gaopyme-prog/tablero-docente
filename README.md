@@ -1,6 +1,8 @@
 # Tablero Docente
 
-Herramienta web para docentes: sube las **actas parciales (PDF)** del sistema académico y obtén automáticamente:
+> 🤖 **Aplicativo desarrollado con inteligencia artificial, disponible para su uso y mejora.** Propuestas y correcciones son bienvenidas (pestaña *Issues* o *Pull requests* del repositorio).
+
+Herramienta web para docentes: sube las **actas parciales (PDF)** del sistema académico, o tu propio **Excel** con las notas (hay una plantilla modelo descargable), y obtén automáticamente:
 
 - **Inasistencia (Art. 34):** % de faltas, faltas que le quedan a cada estudiante y quién pierde o está en riesgo (límite 15 %, o 25 % con justificación).
 - **Nota mínima** que necesita cada estudiante en el siguiente corte para aprobar (los pesos 30/30/40 se leen del acta).
@@ -12,6 +14,10 @@ Herramienta web para docentes: sube las **actas parciales (PDF)** del sistema ac
 Todo se procesa **en el navegador**. Los PDFs y los datos de los estudiantes no se suben a ningún servidor ni se guardan.
 **Nunca subas actas reales a este repositorio.**
 
+## Fuentes de datos
+- **PDF** del acta parcial de UNIPAZ (se lee automáticamente).
+- **Excel / CSV** con la plantilla modelo (botón *Descargar plantilla de Excel*): hojas *Curso* (asignatura, grupo, pesos, intensidad horaria) y *Notas* (un estudiante por fila, con nota y faltas de cada corte). Permite 2, 3 o 4 cortes y varias asignaturas en una misma hoja.
+
 ## Uso
 Abre la dirección de GitHub Pages del repositorio, arrastra uno o varios PDFs y revisa las pestañas por asignatura.
 Antes de interpretar los resultados, confirma en *Parámetros* la **intensidad horaria** de cada asignatura (no viene en el acta).
@@ -21,5 +27,5 @@ Pierde la asignatura (0.0) quien supera el 15 % de inasistencia sin justificar; 
 Nota mínima = (aprobatoria − acumulado ponderado) ÷ peso de lo que falta, redondeada hacia arriba a un decimal.
 
 ## Para desarrolladores
-Aplicación estática sin paso de compilación (`index.html`, `js/`, `css/`, `vendor/`). Las pruebas (`tests/`) usan `node --test`.
+Aplicación estática sin paso de compilación (`index.html`, `js/`, `css/`, `vendor/`). `js/parser.js` lee el PDF, `js/excel.js` el Excel y `js/analysis.js` calcula alertas y estadística. Las pruebas (`tests/`) usan `node --test`.
 Librerías incluidas en `vendor/`: pdf.js, Chart.js, SheetJS.
