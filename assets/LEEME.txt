@@ -1,0 +1,5 @@
+LOGO (opcional)
+Si quieres que aparezca el logo de UNIPAZ en el encabezado, sube a esta carpeta
+una imagen llamada exactamente:  logo.png
+(fondo transparente o blanco, de unos 300 px de ancho). Si no existe, la
+herramienta funciona igual, simplemente sin logo.
