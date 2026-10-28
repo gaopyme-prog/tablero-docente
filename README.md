@@ -29,3 +29,9 @@ Nota mínima = (aprobatoria − acumulado ponderado) ÷ peso de lo que falta, re
 ## Para desarrolladores
 Aplicación estática sin paso de compilación (`index.html`, `js/`, `css/`, `vendor/`). `js/parser.js` lee el PDF, `js/excel.js` el Excel y `js/analysis.js` calcula alertas y estadística. Las pruebas (`tests/`) usan `node --test`.
 Librerías incluidas en `vendor/`: pdf.js, Chart.js, SheetJS.
+
+## Créditos y soporte
+
+Idea y dirección: **Omar Guerrero Avilés**, docente de tiempo completo de la Escuela de Ciencias, UNIPAZ (Instituto Universitario de la Paz). Desarrollado con apoyo de inteligencia artificial.
+
+Soporte: omar.guerreroav@unipaz.edu.co
