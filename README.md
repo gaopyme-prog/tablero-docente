@@ -20,7 +20,7 @@ Todo se procesa **en el navegador**. Los PDFs y los datos de los estudiantes no 
 
 ## Uso
 Abre la dirección de GitHub Pages del repositorio, arrastra uno o varios PDFs y revisa las pestañas por asignatura.
-Antes de interpretar los resultados, confirma en *Parámetros* la **intensidad horaria** de cada asignatura (no viene en el acta).
+Antes de mostrar resultados, la herramienta **pregunta la intensidad horaria** de cada asignatura según su microcurrículo (**32, 48 o 64 horas**, u otra): no viene en el acta y de ella depende el máximo de faltas. La respuesta se recuerda en el navegador y siempre se pide confirmarla.
 
 ## Reglas aplicadas
 Pierde la asignatura (0.0) quien supera el 15 % de inasistencia sin justificar; con enfermedad o fuerza mayor comprobada el límite es 25 %.

@@ -12,7 +12,7 @@
   const SEV = { critica: { label: 'Crítica', color: C.rojo }, alta: { label: 'Alta', color: C.naranja }, media: { label: 'Atención', color: C.ambar }, ok: { label: 'Sin alerta', color: C.verde } };
   const CORTE_COLORS = [C.azul, C.verde, C.azulCl, C.verdeCl];
 
-  const state = { actas: [], cursos: [], demo: false, active: '__all__', just: {}, anon: false, sort: { col: 'sev', dir: -1 }, sev: '', q: '', charts: {}, an: {} };
+  const state = { actas: [], cursos: [], demo: false, active: '__all__', just: {}, anon: false, sort: { col: 'sev', dir: -1 }, sev: '', q: '', charts: {}, an: {}, confirmed: {}, draft: {} };
 
   // ---------- Parámetros por asignatura (se recuerdan en el navegador; no contienen datos de estudiantes)
   const cfgKey = c => 'tablero.cfg.' + c.meta.codigo;
@@ -20,6 +20,7 @@
     const base = Object.assign({}, DEFAULTS, c.meta.horas ? { horas: c.meta.horas } : {});
     try { return Object.assign(base, JSON.parse(localStorage.getItem(cfgKey(c)) || '{}')); } catch (e) { return base; }
   }
+  function getStored(c) { try { return JSON.parse(localStorage.getItem(cfgKey(c)) || '{}'); } catch (e) { return {}; } }
   function setCfg(c, cfg) { try { localStorage.setItem(cfgKey(c), JSON.stringify(cfg)); } catch (e) { /* modo privado */ } }
 
   // ---------- Carga de archivos
@@ -57,7 +58,48 @@
   function afterLoad() {
     $('#app').hidden = false; $('#btnClear').hidden = false;
     if (!state.cursos.some(c => c.key === state.active)) state.active = state.cursos.length > 1 ? '__all__' : (state.cursos[0] && state.cursos[0].key);
-    render();
+    if (pendientes().length) renderGate(); else render();
+  }
+
+  // ---------- Intensidad horaria: se pregunta ANTES de analizar (según el microcurrículo)
+  const HORAS_OPC = [32, 48, 64], SEMANAS = 16; // 2 h/semana = 32 · 3 h/semana = 48 · 4 h/semana = 64
+  const horasKey = c => 'tablero.horas.' + c.meta.codigo;
+  function savedHoras(c) { try { const v = parseFloat(localStorage.getItem(horasKey(c))); return Number.isFinite(v) && v > 0 ? v : null; } catch (e) { return null; } }
+  const pendientes = () => state.cursos.filter(c => !state.confirmed[c.key]);
+  function renderGate() {
+    const list = pendientes();
+    for (const c of list) if (state.draft[c.key] == null) state.draft[c.key] = c.meta.horas || savedHoras(c) || null;
+    Object.values(state.charts).forEach(ch => ch.destroy()); state.charts = {}; $('#tabs').innerHTML = '';
+    const L = DEFAULTS.limite, LJ = DEFAULTS.limiteJustificado, mf = Analysis.maxFaltas;
+    let h = `<section class="card gate"><h2>Antes de analizar: ¿cuál es la intensidad horaria?</h2>
+      <p>Indica el total de horas de cada asignatura <b>según su microcurrículo</b>. El acta no lo trae y de ese número depende el máximo de faltas permitido (${L} %).</p>
+      <div class="tipbox">💡 <b>¿No recuerdas cuántas son?</b> Cuenta las horas que dictas por semana: <b>2 horas = 32</b> · <b>3 horas = 48</b> · <b>4 horas = 64</b>.</div>`;
+    for (const c of list) {
+      const sel = state.draft[c.key], otra = sel != null && !HORAS_OPC.includes(sel);
+      h += `<div class="gate-course"><h3>${esc(titleCase(c.meta.asignatura))} <small>· ${esc(titleCase(c.meta.grupo || ''))} · ${c.students.length} estudiantes</small></h3>
+        <div class="hopts" role="radiogroup" aria-label="Intensidad horaria de ${esc(titleCase(c.meta.asignatura))}">
+        ${HORAS_OPC.map(v => `<button type="button" class="hbtn ${sel === v ? 'sel' : ''}" role="radio" aria-checked="${sel === v}" data-h="${v}" data-k="${esc(c.key)}"><b>${v}</b> horas<span class="hsem">${v / SEMANAS} horas por semana</span><small>Máx. ${mf(v, L)} faltas sin justificar<br>(${mf(v, LJ)} si es justificada)</small></button>`).join('')}
+        <label class="hother ${otra ? 'sel' : ''}">Otra<input type="number" min="1" max="400" step="1" data-hother="${esc(c.key)}" value="${otra ? sel : ''}" placeholder="horas"></label></div></div>`;
+    }
+    h += `<div class="row"><button class="btn" id="btnGo" disabled>Ver el análisis</button><span class="hint" id="gateHint">Elige la intensidad horaria de cada asignatura para continuar.</span></div></section>`;
+    $('#view').innerHTML = h;
+    const refresh = () => {
+      const ok = list.every(c => state.draft[c.key] > 0); $('#btnGo').disabled = !ok;
+      $('#gateHint').textContent = ok ? '' : 'Elige la intensidad horaria de cada asignatura para continuar.';
+      document.querySelectorAll('.hbtn').forEach(b => { const on = state.draft[b.dataset.k] === +b.dataset.h; b.classList.toggle('sel', on); b.setAttribute('aria-checked', on); });
+      document.querySelectorAll('.hother').forEach(l => { const k = l.querySelector('input').dataset.hother, v = state.draft[k]; l.classList.toggle('sel', v != null && !HORAS_OPC.includes(v)); });
+    };
+    document.querySelectorAll('.hbtn').forEach(b => b.onclick = () => { state.draft[b.dataset.k] = +b.dataset.h; document.querySelector(`[data-hother="${CSS.escape(b.dataset.k)}"]`).value = ''; refresh(); });
+    document.querySelectorAll('[data-hother]').forEach(i => i.oninput = () => { const v = parseFloat(i.value); state.draft[i.dataset.hother] = Number.isFinite(v) && v > 0 ? v : null; refresh(); });
+    $('#btnGo').onclick = () => {
+      for (const c of list) {
+        const horas = state.draft[c.key]; setCfg(c, Object.assign({}, getStored(c), { horas }));
+        try { localStorage.setItem(horasKey(c), String(horas)); } catch (e) { /* modo privado */ }
+        state.confirmed[c.key] = true;
+      }
+      render(); window.scrollTo(0, 0);
+    };
+    refresh();
   }
 
   // ---------- Cálculo
@@ -124,7 +166,7 @@
     const pend = c.meta.cortes.filter(x => a.rows.some(r => r.pendientes.includes(x.id)));
     const sig = pend.length ? pend[0].id : null;
     let html = `<div class="head"><div><h2>${esc(cursoName(c))} <small style="color:var(--txt2);font-weight:500">· ${esc(titleCase(c.meta.grupo || ''))} (${esc(c.meta.codigo)})</small></h2>
-      <p>${[c.meta.periodo, titleCase(c.meta.convocatoria || ''), c.meta.fecha ? (c.meta.origen === 'excel' ? 'datos cargados desde Excel' : 'acta del ' + c.meta.fecha) : '', 'pesos: ' + c.meta.cortes.map(x => `${corteLabel(x.id)} ${x.peso}%`).join(' · ')].filter(Boolean).map(esc).join(' · ')}${state.demo ? ' · <b>datos de ejemplo</b>' : ''}</p></div>${toolbarExport()}</div>`;
+      <p>${[c.meta.periodo, titleCase(c.meta.convocatoria || ''), c.meta.origen === 'excel' ? 'datos cargados desde Excel' : (c.meta.fecha ? 'acta del ' + c.meta.fecha : ''), `intensidad ${cfg.horas} h (máx. ${Analysis.maxFaltas(cfg.horas, cfg.limite)} faltas)`, 'pesos: ' + c.meta.cortes.map(x => `${corteLabel(x.id)} ${x.peso}%`).join(' · ')].filter(Boolean).map(esc).join(' · ')}${state.demo ? ' · <b>datos de ejemplo</b>' : ''}</p></div>${toolbarExport()}</div>`;
     html += paramsHtml(cfg);
     html += `<div class="kpis">
       <div class="kpi"><b>${s.n}</b><span>Estudiantes</span></div>
@@ -161,7 +203,7 @@
     return `<details class="params no-print" ${state.paramsOpen ? 'open' : ''}><summary>Parámetros de esta asignatura</summary><div class="params-grid">
       ${f('horas', 'Intensidad horaria total (horas)', 1, 1)}${f('limite', 'Límite de inasistencia (%)', 1, 1, 100)}${f('limiteJustificado', 'Límite con justificación (%)', 1, 1, 100)}
       ${f('aprobatoria', 'Nota aprobatoria', 0.1, 0, 5)}${f('alertaQuedan', 'Alertar si quedan ≤ (faltas)', 1, 0)}${f('notaExigente', 'Nota "exigente" desde', 0.1, 0, 5)}</div>
-      <p class="hint">⚠ La intensidad horaria <b>no viene en el acta</b>: confírmala para esta asignatura (por defecto ${DEFAULTS.horas} h). Se recuerda en este navegador.</p></details>`;
+      <p class="hint">La intensidad horaria es la que indicaste al inicio (según el microcurrículo). Si te equivocaste, cámbiala aquí y todo se recalcula.</p></details>`;
   }
 
   function alertsHtml(list, showCurso) {
@@ -267,7 +309,7 @@
     chart('ch4', { type: 'scatter', data: { datasets: [{ data: pts.map(x => ({ x: x.r.faltas, y: Math.max(0, Math.min(cfg.notaMax + 0.15, x.r.need)), k: x })), pointRadius: 7, pointHoverRadius: 9, backgroundColor: pts.map(x => SEV[x.r.severidad].color) }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, lineMarker: { lines: [{ axis: 'x', value: Analysis.maxFaltas(cfg.horas, cfg.limite) + 0.5, label: 'Límite de faltas' }, { axis: 'y', value: cfg.notaExigente, color: C.naranja, label: 'Exigente' }] },
         tooltip: { callbacks: { label: t => { const k = t.raw.k; return `${dispName(k.r, k.i)}: ${k.r.faltas} faltas, nota mín. ${k.r.needLabel}`; } } } },
-        scales: { x: { title: { display: true, text: 'Faltas acumuladas' }, min: -1, ticks: { stepSize: 1, callback: v => (v >= 0 && Number.isInteger(v) ? v : '') } }, y: { title: { display: true, text: `Nota mínima en ${sig ? corteLabel(sig) : 'lo que falta'}` }, min: 0, max: cfg.notaMax + 0.3 } } } });
+        scales: { x: { title: { display: true, text: 'Faltas acumuladas' }, min: -1, ticks: { stepSize: 1, callback: v => (v >= 0 && Number.isInteger(v) ? v : '') } }, y: { title: { display: true, text: `Nota mínima en ${sig ? corteLabel(sig) : 'lo que falta'}` }, min: 0, max: cfg.notaMax + 0.5, ticks: { stepSize: 1, callback: v => (v <= cfg.notaMax ? v : '') } } } } });
     // 5 Distribución de alertas
     const sc = a.stats.sevCount;
     chart('ch5', { type: 'doughnut', data: { labels: ['critica', 'alta', 'media', 'ok'].map(k => `${SEV[k].label} (${sc[k]})`), datasets: [{ data: ['critica', 'alta', 'media', 'ok'].map(k => sc[k]), backgroundColor: ['critica', 'alta', 'media', 'ok'].map(k => SEV[k].color) }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } });
@@ -356,13 +398,13 @@
   ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
   drop.addEventListener('drop', e => handleFiles([...e.dataTransfer.files]));
   $('#tabs').onclick = e => { const b = e.target.closest('.tab'); if (!b) return; state.active = b.dataset.k; render(); };
-  $('#btnDemo').onclick = () => { $('#log').innerHTML = ''; state.actas = []; state.just = {}; state.cursos = DemoData(); state.demo = true; log('ℹ Cargados datos de ejemplo (ficticios).', 'warn'); afterLoad(); };
+  $('#btnDemo').onclick = () => { $('#log').innerHTML = ''; state.actas = []; state.just = {}; state.confirmed = {}; state.draft = {}; state.cursos = DemoData(); state.demo = true; log('ℹ Cargados datos de ejemplo (ficticios).', 'warn'); afterLoad(); };
   $('#btnTpl').onclick = () => XLSX.writeFile(ExcelIO.buildTemplate(XLSX), 'plantilla_notas_tablero_docente.xlsx');
   (function repoLink() { // si está publicado en GitHub Pages, enlaza al repositorio para proponer mejoras
     const h = location.hostname, m = /^([^.]+)\.github\.io$/.exec(h), repo = location.pathname.split('/')[1];
     if (m && repo) { const a = $('#repoLink'); a.href = `https://github.com/${m[1]}/${repo}`; a.hidden = false; }
   })();
-  $('#btnClear').onclick = () => { state.actas = []; state.cursos = []; state.just = {}; state.q = ''; state.sev = ''; state.demo = false; $('#app').hidden = true; $('#btnClear').hidden = true; $('#log').innerHTML = ''; $('#view').innerHTML = ''; };
+  $('#btnClear').onclick = () => { state.actas = []; state.cursos = []; state.just = {}; state.confirmed = {}; state.draft = {}; state.q = ''; state.sev = ''; state.demo = false; $('#app').hidden = true; $('#btnClear').hidden = true; $('#log').innerHTML = ''; $('#view').innerHTML = ''; };
   window.__tablero = state; // útil para depuración y pruebas
   window.__tableroLoad = cursos => { state.cursos = cursos; state.actas = []; afterLoad(); };
 })();

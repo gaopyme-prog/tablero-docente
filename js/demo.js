@@ -19,7 +19,7 @@
     }
     students.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
     return { key: `${cod}|${gcod}|DEMO`, archivos: ['(ejemplo)'], students,
-      meta: { asignatura: asig, codigo: cod, grupo, grupoCodigo: gcod, periodo: 'EJEMPLO', convocatoria: 'ORDINARIA', fecha: 'datos ficticios',
+      meta: { asignatura: asig, codigo: cod, grupo, grupoCodigo: gcod, periodo: 'EJEMPLO', convocatoria: 'ORDINARIA', fecha: '', origen: 'demo',
         cortes: [{ id: 'N1', peso: 30 }, { id: 'N2', peso: 30 }, { id: 'N3', peso: 40 }] } };
   }
   // Casos que muestran cada tipo de alerta

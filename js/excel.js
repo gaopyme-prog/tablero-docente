@@ -116,7 +116,7 @@
     const ins = [
       ['PLANTILLA PARA CARGAR NOTAS – Tablero Docente'], [''],
       ['Úsala solo si no tienes el acta parcial en PDF de UNIPAZ (si la tienes, súbela directamente).'], [''],
-      ['1. En la hoja "Curso" escribe los datos de tu asignatura, los pesos de cada corte (deben sumar 100) y la intensidad horaria total.'],
+      ['1. En la hoja "Curso" escribe los datos de tu asignatura, los pesos de cada corte (deben sumar 100) y la intensidad horaria total según el microcurrículo (32, 48 o 64 horas; equivale a 2, 3 o 4 horas semanales).'],
       ['2. En la hoja "Notas" escribe un estudiante por fila. Borra las 3 filas de ejemplo (las que empiezan por "EJEMPLO").'],
       ['3. Notas con decimales de 0 a 5 (coma o punto). Si un corte aún no se ha calificado, deja la nota VACÍA (no escribas 0).'],
       ['4. Faltas: número de horas o clases perdidas en ese corte. Si no hubo, deja vacío o pon 0.'],
@@ -127,7 +127,7 @@
     const wsI = XLSX.utils.aoa_to_sheet(ins); wsI['!cols'] = [{ wch: 120 }];
     const wsC = XLSX.utils.aoa_to_sheet([
       ['Dato', 'Valor'], ['Asignatura', 'NOMBRE DE LA ASIGNATURA'], ['Código', ''], ['Grupo', 'GRUPO DIURNO'], ['Periodo', '2026-2S'],
-      ['Peso 1er Corte (%)', 30], ['Peso 2do Corte (%)', 30], ['Peso 3er Corte (%)', 40], ['Intensidad horaria total (horas)', 48],
+      ['Peso 1er Corte (%)', 30], ['Peso 2do Corte (%)', 30], ['Peso 3er Corte (%)', 40], ['Intensidad horaria total (32, 48 o 64 horas)', 48],
     ]); wsC['!cols'] = [{ wch: 36 }, { wch: 36 }];
     const head = ['Documento', 'Estudiante', '1er Corte (nota)', '1er Corte (faltas)', '2do Corte (nota)', '2do Corte (faltas)', '3er Corte (nota)', '3er Corte (faltas)'];
     const wsN = XLSX.utils.aoa_to_sheet([head,
