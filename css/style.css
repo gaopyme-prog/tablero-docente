@@ -104,3 +104,7 @@ td:first-child{background:#fff} tbody tr:hover td{background:#F7F9FD} tbody tr:h
 
 .hsem{display:block;font-weight:600;color:var(--azul);font-size:13px;margin-top:2px}.hbtn.sel .hsem{color:var(--verde-osc)}
 .tipbox{background:var(--ambar-cl);border-left:5px solid #E0A100;border-radius:8px;padding:9px 12px;margin:0 0 6px;font-size:14px;color:var(--txt)}
+
+.habcard summary{cursor:pointer;font-weight:700;color:var(--azul)} .habcard .warn{color:var(--rojo)}
+.habcard select,.habcard textarea,.habcard .params-grid input[type=text]{padding:7px 9px;border:1.5px solid var(--borde);border-radius:8px;font:600 14px system-ui;width:100%;box-sizing:border-box}
+.habextra{display:flex;flex-direction:column;font-size:12.5px;color:var(--txt2);gap:3px;margin-top:10px}

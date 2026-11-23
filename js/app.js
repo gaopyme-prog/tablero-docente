@@ -175,6 +175,7 @@
       <div class="kpi nar"><b>${s.sevCount.alta}</b><span>Alertas altas</span></div>
       <div class="kpi nar"><b>${s.asistPerdida}</b><span>Superan el límite de faltas</span></div>
       <div class="kpi"><b>${s.asistRiesgo}</b><span>En riesgo por faltas</span></div></div>`;
+    if (!pend.length) html += habilitacionHtml(c, a);
     const withAlert = a.rows.map((r, i) => ({ c, r, i })).filter(x => x.r.sevNum >= 1).sort((x, y) => y.r.sevNum - x.r.sevNum);
     html += `<h2 class="sec">Alertas (${withAlert.length})</h2>` + alertsHtml(withAlert, false);
     html += `<h2 class="sec">Detalle por estudiante</h2><div class="card">
@@ -193,10 +194,72 @@
       <div class="card"><h3>Promedio del grupo por corte</h3><div class="cbox" style="height:320px"><canvas id="ch7"></canvas></div></div></div>`;
     html += `<h2 class="sec">Estadística del grupo</h2>` + statsHtml(c, a);
     $('#view').innerHTML = html;
-    drawTable(c); drawCharts(c, a, sig); wireCommon(); wireCourse(c);
+    drawTable(c); drawCharts(c, a, sig); wireCommon(); wireCourse(c); if (!pend.length) wireHab(c);
   }
 
   const toolbarExport = () => `<div class="row no-print"><button class="btn azul sm" data-act="xlsx">⬇ Excel</button><button class="btn ghost sm" data-act="csv">⬇ CSV</button><button class="btn ghost sm" data-act="print">🖨 Imprimir / PDF</button></div>`;
+
+  // ---------- Habilitación (se muestra cuando ya están todos los cortes calificados)
+  const HAB_KEY = 'tablero.hab';
+  const HAB_DEF = { desde: '3 de diciembre', hasta: '5 de diciembre', valor: '$109.000', medio: 'Presencial en el Banco AV Villas con el recibo impreso, o en línea desde la página web institucional', comprobante: '', extra: 'Pasos: 1) Ingresa en www.unipaz.edu.co » Soy Estudiante. 2) Descarga el recibo de pago con concepto de habilitación. 3) Paga el valor indicado. Recuerda consultar el día, la hora y el lugar donde presentarás la habilitación.', porFaltas: 'no' };
+  function getHab() { try { return Object.assign({}, HAB_DEF, JSON.parse(localStorage.getItem(HAB_KEY) || '{}')); } catch (e) { return Object.assign({}, HAB_DEF); } }
+  function setHab(h) { try { localStorage.setItem(HAB_KEY, JSON.stringify(h)); } catch (e) { /* modo privado */ } }
+  const habFalta = h => ['valor', 'medio'].filter(k => !String(h[k] || '').trim());
+  const HAB_LBL = { valor: 'valor a pagar', medio: 'medio de pago', comprobante: 'dónde enviar el comprobante' };
+
+  function perdieron(a) { return a.rows.map((r, i) => ({ r, i })).filter(x => x.r.asistencia === 'perdida' || x.r.nota === 'reprobada'); }
+  function habilita(r, h) { return r.asistencia === 'perdida' ? h.porFaltas === 'si' : true; }
+
+  function habMensaje(c, i) {
+    const a = state.an[c.key], r = a.rows[i], cfg = a.cfg, h = getHab();
+    const nombre = titleCase((r.nombre.split(',')[1] || r.nombre).trim().split(' ')[0]);
+    const p = [`Hola ${nombre}, te escribo por la asignatura ${titleCase(c.meta.asignatura)} (${titleCase(c.meta.grupo || '')}), con los resultados finales del ${corteLabel(c.meta.cortes[c.meta.cortes.length - 1].id)}.`];
+    if (r.asistencia === 'perdida') {
+      p.push(`Tuviste ${r.faltas} ${r.faltas === 1 ? 'falta' : 'faltas'} (${r.pct.toFixed(1)}% de la intensidad horaria) y el máximo permitido era ${r.max}. Según el Art. 34 del reglamento estudiantil, la asignatura se pierde por inasistencia con nota 0.0.`);
+      if (h.porFaltas === 'si') { /* sigue con la habilitación */ }
+      else p.push(r.recuperable ? 'Si tuviste una causa comprobada (enfermedad o fuerza mayor), presenta la justificación dentro de los 5 días hábiles siguientes ante la coordinación académica.' : 'Acércate a la coordinación académica para revisar tu situación.');
+    } else {
+      p.push(`Tu definitiva quedó en ${r.definitiva.toFixed(2)}, por debajo de la nota aprobatoria (${cfg.aprobatoria.toFixed(1)}), por lo que no aprobaste la asignatura.`);
+    }
+    if (habilita(r, h)) {
+      p.push(`Puedes presentar la habilitación entre el ${h.desde} y el ${h.hasta}.`);
+      const pago = [h.valor && `valor a pagar: ${h.valor}`, h.medio && `cómo pagar: ${h.medio}`, h.comprobante && `envía el comprobante a: ${h.comprobante}`].filter(Boolean);
+      if (pago.length) p.push('Información de pago:\n• ' + pago.join('\n• '));
+      if (h.extra.trim()) p.push(h.extra.trim());
+    }
+    p.push('Quedo atento para ayudarte.'); return p.join('\n\n');
+  }
+
+  function habilitacionHtml(c, a) {
+    const lista = perdieron(a); const h = getHab(); const falta = habFalta(h);
+    const hasCfg = lista.some(x => habilita(x.r, h));
+    const inp = (k, l, ph) => `<label>${l}<input type="text" data-hab="${k}" value="${esc(h[k] || '')}" placeholder="${esc(ph || '')}"></label>`;
+    let html = `<h2 class="sec">Perdieron la asignatura (${lista.length})</h2>`;
+    html += `<div class="card habcard no-print"><details ${falta.length && hasCfg ? 'open' : ''}><summary>Datos de la habilitación${falta.length && hasCfg ? ` <b class="warn">· faltan: ${falta.map(k => HAB_LBL[k]).join(', ')}</b>` : ''}</summary>
+      <div class="params-grid">${inp('desde', 'Desde', '3 de diciembre')}${inp('hasta', 'Hasta', '5 de diciembre')}${inp('valor', 'Valor a pagar', 'Ej.: $120.000')}${inp('medio', 'Medio de pago', 'Banco, cuenta o Nequi')}${inp('comprobante', 'Enviar comprobante a (opcional)', 'Correo o WhatsApp')}
+      <label>¿Habilitan los que pierden por faltas?<select data-hab="porFaltas"><option value="no" ${h.porFaltas !== 'si' ? 'selected' : ''}>No</option><option value="si" ${h.porFaltas === 'si' ? 'selected' : ''}>Sí</option></select></label></div>
+      <label class="habextra">Texto adicional (opcional)<textarea data-hab="extra" rows="2" placeholder="Ej.: indicaciones del banco, horario de la prueba…">${esc(h.extra || '')}</textarea></label>
+      <p class="hint">Estos datos se guardan solo en este navegador y se usan en los mensajes. Tus estudiantes no los ven hasta que tú copies el mensaje.</p></details></div>`;
+    if (!lista.length) return html + `<div class="empty">✓ Nadie perdió la asignatura con los parámetros actuales.</div>`;
+    html += `<div class="row no-print" style="margin:8px 0"><button class="btn azul sm" data-habcopyall="${esc(c.key)}">Copiar todos los mensajes</button></div><div class="alerts">` + lista.map(({ r, i }) => {
+      const porF = r.asistencia === 'perdida';
+      return `<div class="al critica"><div class="who"><strong>${esc(dispName(r, i))}</strong><span class="badge b-critica">${porF ? 'Pierde por faltas' : 'Reprobó'}</span></div>
+      <ul><li>${porF ? `${r.faltas} falta(s), ${r.pct.toFixed(1)}% (máx. ${r.max}). Nota final 0.0.` : `Definitiva ${r.definitiva.toFixed(2)} (mínimo ${a.cfg.aprobatoria.toFixed(1)}).`}</li>
+      <li>${habilita(r, h) ? 'Puede presentar habilitación.' : 'No habilita (pérdida por inasistencia).'}</li></ul>
+      <div class="acts no-print"><button class="btn ghost sm" data-habcopy="${esc(c.key)}::${i}">Copiar mensaje</button>
+      <label><input type="checkbox" data-just="${esc(c.key)}::${esc(r.dni)}" ${r.justificado ? 'checked' : ''}> Justificada</label></div></div>`;
+    }).join('') + '</div>';
+    return html;
+  }
+
+  function wireHab(c) {
+    const a = state.an[c.key];
+    document.querySelectorAll('[data-hab]').forEach(el => el.onchange = () => { const h = getHab(); h[el.dataset.hab] = el.value; setHab(h); const y = window.scrollY; render(); window.scrollTo(0, y); });
+    const flash = (b, t) => { const o = b.textContent; b.textContent = t; setTimeout(() => (b.textContent = o), 1400); };
+    const guard = () => { const h = getHab(); const f = habFalta(h); return !(f.length && perdieron(a).some(x => habilita(x.r, h))) || confirm('Faltan datos de pago (' + f.map(k => HAB_LBL[k]).join(', ') + '). ¿Copiar el mensaje de todos modos?'); };
+    document.querySelectorAll('[data-habcopy]').forEach(b => b.onclick = () => { if (!guard()) return; const i = +b.dataset.habcopy.split('::')[1]; copy(habMensaje(c, i)).then(() => flash(b, '¡Copiado!')); });
+    document.querySelectorAll('[data-habcopyall]').forEach(b => b.onclick = () => { if (!guard()) return; copy(perdieron(a).map(x => `── ${x.r.nombre} ──\n` + habMensaje(c, x.i)).join('\n\n\n')).then(() => flash(b, '¡Copiados!')); });
+  }
 
   function paramsHtml(cfg) {
     const f = (k, l, step, min, max) => `<label>${l}<input type="number" data-p="${k}" value="${cfg[k]}" step="${step}" min="${min}" ${max ? `max="${max}"` : ''}></label>`;
