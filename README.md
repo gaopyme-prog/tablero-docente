@@ -1,45 +1,69 @@
-# Tablero Docente
+# Tablero Docente · Control académico
 
-> 🤖 **Aplicativo desarrollado con inteligencia artificial, disponible para su uso y mejora.** Propuestas y correcciones son bienvenidas (pestaña *Issues* o *Pull requests* del repositorio).
+> 🤖 Aplicativo desarrollado con apoyo de inteligencia artificial, de uso libre para docentes. Las propuestas y correcciones son bienvenidas (pestañas *Issues* o *Pull requests*).
 
-Herramienta web para docentes: sube las **actas parciales (PDF)** del sistema académico, o tu propio **Excel** con las notas (hay una plantilla modelo descargable), y obtén automáticamente:
+**Abrir la herramienta:** https://gaopyme-prog.github.io/tablero-docente/
 
-- **Inasistencia (Art. 34):** % de faltas, faltas que le quedan a cada estudiante y quién pierde o está en riesgo (límite 15 %, o 25 % con justificación).
-- **Nota mínima** que necesita cada estudiante en el siguiente corte para aprobar (los pesos 30/30/40 se leen del acta).
-- **Alertas** (crítica, alta, atención) con el motivo, y un aviso listo para copiar y enviar al estudiante.
-- **Gráficos y estadística** del grupo: promedios, desviación, distribución, correlación faltas ↔ notas.
+## ¿Qué es?
+Una página web para docentes de UNIPAZ que lee las **actas parciales de notas (PDF)** que entrega el sistema académico, o un **Excel** propio con las notas, y convierte esa información en un tablero de control del curso: quién está en riesgo de perder por faltas, qué nota necesita cada estudiante en el siguiente corte y cómo va el grupo en general.
+
+## ¿Para qué sirve? (finalidad)
+Que el docente detecte **a tiempo** a los estudiantes en riesgo académico y pueda avisarles antes de que sea tarde. Hacer este cálculo a mano, estudiante por estudiante y asignatura por asignatura, toma horas; la herramienta lo hace en segundos y con las reglas del reglamento estudiantil.
+
+**Dirigido a:** docentes y coordinadores de programa.
+
+## ¿Qué entrega?
+- **Inasistencia (Art. 34):** porcentaje de faltas, faltas que le quedan a cada estudiante y quién pierde o está en riesgo (límite 15 %, o 25 % con justificación comprobada).
+- **Nota mínima** que necesita cada estudiante en el siguiente corte para aprobar (los pesos, por ejemplo 30/30/40, se leen del acta).
+- **Alertas por nivel** (crítica, alta, atención) con el motivo, y un **mensaje listo para copiar** y enviar al estudiante.
+- **Gráficos y estadística** del grupo: promedios, desviación, distribución de notas y relación entre faltas y notas.
+- **Habilitación (al cierre del semestre):** lista de quienes perdieron la asignatura, con un mensaje para cada uno que incluye fechas y datos de pago de la habilitación.
 - **Exportación** a Excel, CSV o PDF (imprimir).
 
+## ¿Cómo se usa?
+1. Abra el enlace de la herramienta en Chrome, Edge o Firefox.
+2. Arrastre a la zona indicada uno o varios PDF de actas parciales (pueden ser de distintas asignaturas) o su Excel de notas.
+   - Si sus notas están en otra fuente, pulse **Descargar plantilla de Excel**, pegue allí sus datos y súbala.
+   - Para conocerla sin datos reales, pulse **Probar con datos de ejemplo**.
+3. La herramienta le pregunta la **intensidad horaria** de cada asignatura según el microcurrículo (32, 48 o 64 horas, u otra). Este dato no viene en el acta y de él depende el máximo de faltas. Se recuerda en el navegador.
+4. Revise las pestañas por asignatura: alertas, tabla de estudiantes, gráficos.
+5. Copie los avisos para los estudiantes o exporte el resultado.
+
+## Habilitación (cuando ya están calificados todos los cortes)
+Al cargar el acta con todos los cortes calificados aparece la sección **«Perdieron la asignatura»**:
+1. Muestra a cada estudiante que perdió **por nota** (definitiva por debajo de la aprobatoria) o **por faltas**, con el motivo.
+2. Cada uno tiene el botón **Copiar mensaje**, y también hay **Copiar todos los mensajes**. El mensaje explica el resultado y, si puede habilitar, las fechas, el valor, el medio de pago y los pasos para descargar el recibo.
+3. En **«Datos de la habilitación»** vienen precargados los datos de UNIPAZ: del 3 al 5 de diciembre, $109.000, pago en el Banco AV Villas o en línea, y los pasos en www.unipaz.edu.co › Soy Estudiante. El docente puede cambiarlos, agregar dónde enviar el comprobante y un texto adicional.
+4. La opción **«¿Habilitan los que pierden por faltas?»** viene en *No*. En ese caso, el mensaje de quien perdió por faltas le indica que presente la justificación si tuvo una causa comprobada (enfermedad o fuerza mayor), o que se acerque a la coordinación académica. La casilla **Justificada** permite marcar a quien ya la presentó.
+5. Si falta el valor o el medio de pago, la herramienta lo advierte antes de copiar.
+
+Estos datos se guardan solo en el navegador del docente; los estudiantes no los ven hasta que el docente les envía el mensaje.
+
+## Reglas que aplica
+- Pierde la asignatura (0.0) quien supera el 15 % de inasistencia sin justificar; con enfermedad o fuerza mayor comprobada el límite es 25 %. Estar exactamente en el límite no hace perder.
+- Nota mínima = (nota aprobatoria − acumulado ponderado) ÷ peso de lo que falta, redondeada hacia arriba a un decimal.
+- Es una herramienta de apoyo: verifique siempre contra el registro oficial de asistencia y el reglamento vigente.
+
 ## Privacidad
-Todo se procesa **en el navegador**. Los PDFs y los datos de los estudiantes no se suben a ningún servidor ni se guardan.
-**Nunca subas actas reales a este repositorio.**
+Todo se procesa **dentro del navegador** del docente. Los PDF y los datos de los estudiantes **no se suben a ningún servidor** ni se guardan en este repositorio. **Nunca suba actas reales a este repositorio.**
 
-## Fuentes de datos
-- **PDF** del acta parcial de UNIPAZ (se lee automáticamente).
-- **Excel / CSV** con la plantilla modelo (botón *Descargar plantilla de Excel*): hojas *Curso* (asignatura, grupo, pesos, intensidad horaria) y *Notas* (un estudiante por fila, con nota y faltas de cada corte). Permite 2, 3 o 4 cortes y varias asignaturas en una misma hoja.
+## Plantilla de Excel
+Hojas *Curso* (asignatura, grupo, pesos, intensidad horaria) y *Notas* (un estudiante por fila, con nota y faltas de cada corte). Admite 2, 3 o 4 cortes y varias asignaturas en una misma hoja.
 
-## Uso
-Abre la dirección de GitHub Pages del repositorio, arrastra uno o varios PDFs y revisa las pestañas por asignatura.
-Antes de mostrar resultados, la herramienta **pregunta la intensidad horaria** de cada asignatura según su microcurrículo (**32, 48 o 64 horas**, u otra): no viene en el acta y de ella depende el máximo de faltas. La respuesta se recuerda en el navegador y siempre se pide confirmarla.
+## Archivos del repositorio
+| Archivo / carpeta | Función |
+|---|---|
+| `index.html` | Página principal |
+| `js/parser.js` | Lee el PDF del acta |
+| `js/excel.js` | Lee el Excel o CSV |
+| `js/analysis.js` | Calcula inasistencia, nota mínima, alertas y estadística |
+| `js/app.js`, `js/demo.js` | Interfaz y datos de ejemplo |
+| `css/style.css` | Diseño con colores institucionales |
+| `vendor/` | Librerías incluidas: pdf.js, Chart.js, SheetJS |
+| `assets/plantilla_notas_tablero_docente.xlsx` | Plantilla modelo |
 
-## Reglas aplicadas
-Pierde la asignatura (0.0) quien supera el 15 % de inasistencia sin justificar; con enfermedad o fuerza mayor comprobada el límite es 25 %.
-Nota mínima = (aprobatoria − acumulado ponderado) ÷ peso de lo que falta, redondeada hacia arriba a un decimal.
-
-## Para desarrolladores
-Aplicación estática sin paso de compilación (`index.html`, `js/`, `css/`, `vendor/`). `js/parser.js` lee el PDF, `js/excel.js` el Excel y `js/analysis.js` calcula alertas y estadística. Las pruebas (`tests/`) usan `node --test`.
-Librerías incluidas en `vendor/`: pdf.js, Chart.js, SheetJS.
-
-## Habilitación (tras el 3er corte)
-
-Cuando todos los cortes están calificados, aparece la sección **Perdieron la asignatura** (por faltas o por nota) con un mensaje listo para copiar que incluye las fechas de habilitación (por defecto 3 al 5 de diciembre) y los datos de pago. Si faltan valor, medio de pago o dónde enviar el comprobante, la herramienta los pide; se guardan solo en el navegador.
-
-## Habilitación (3er corte)
-
-Cuando todos los cortes están calificados, la herramienta muestra la lista **«Perdieron la asignatura»** (por faltas o por nota) con un mensaje listo para copiar. Los datos de habilitación (fechas, valor, medio de pago, pasos) vienen precargados y se pueden editar en «Datos de la habilitación»; se guardan solo en el navegador. Si falta el valor o el medio de pago, la herramienta lo advierte.
+Aplicación estática, sin instalación ni servidor. Para poner el logo de UNIPAZ, suba a `assets/` una imagen llamada `logo.png`.
 
 ## Créditos y soporte
-
-Idea y dirección: **Omar Guerrero Avilés**, docente de tiempo completo de la Escuela de Ciencias, UNIPAZ (Instituto Universitario de la Paz). Desarrollado con apoyo de inteligencia artificial.
-
+Idea y dirección: **Omar Guerrero Avilés**, docente de tiempo completo de la Escuela de Ciencias, UNIPAZ (Instituto Universitario de la Paz), Barrancabermeja. Desarrollado con apoyo de inteligencia artificial.
 Soporte: omar.guerreroav@unipaz.edu.co
