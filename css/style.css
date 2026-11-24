@@ -108,3 +108,11 @@ td:first-child{background:#fff} tbody tr:hover td{background:#F7F9FD} tbody tr:h
 .habcard summary{cursor:pointer;font-weight:700;color:var(--azul)} .habcard .warn{color:var(--rojo)}
 .habcard select,.habcard textarea,.habcard .params-grid input[type=text]{padding:7px 9px;border:1.5px solid var(--borde);border-radius:8px;font:600 14px system-ui;width:100%;box-sizing:border-box}
 .habextra{display:flex;flex-direction:column;font-size:12.5px;color:var(--txt2);gap:3px;margin-top:10px}
+
+.simctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;align-items:end}
+.simctl label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--txt2)}
+.simctl input[type=range]{width:100%;accent-color:var(--azul,#1f3a8a)}
+.simres{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:14px}
+.simres>div{background:var(--card2,#f3f5fb);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}
+.simres span{font-size:12px;color:var(--txt2)}.simres b{font-size:1.25rem}.simres small{color:var(--txt2)}
+#tbl td.simlink{cursor:pointer}#tbl td.simlink:hover{text-decoration:underline}

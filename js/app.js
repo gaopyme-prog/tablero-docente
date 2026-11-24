@@ -178,6 +178,7 @@
     if (!pend.length) html += habilitacionHtml(c, a);
     const withAlert = a.rows.map((r, i) => ({ c, r, i })).filter(x => x.r.sevNum >= 1).sort((x, y) => y.r.sevNum - x.r.sevNum);
     html += `<h2 class="sec">Alertas (${withAlert.length})</h2>` + alertsHtml(withAlert, false);
+    html += simHtml(c, a, pend);
     html += `<h2 class="sec">Detalle por estudiante</h2><div class="card">
       <div class="tools no-print"><input type="search" id="q" placeholder="Buscar nombre o documento" value="${esc(state.q)}">
       <select id="fsev"><option value="">Todas las alertas</option>${['critica', 'alta', 'media', 'ok'].map(k => `<option value="${k}" ${state.sev === k ? 'selected' : ''}>${SEV[k].label}</option>`).join('')}</select>
@@ -194,7 +195,7 @@
       <div class="card"><h3>Promedio del grupo por corte</h3><div class="cbox" style="height:320px"><canvas id="ch7"></canvas></div></div></div>`;
     html += `<h2 class="sec">Estadística del grupo</h2>` + statsHtml(c, a);
     $('#view').innerHTML = html;
-    drawTable(c); drawCharts(c, a, sig); wireCommon(); wireCourse(c); if (!pend.length) wireHab(c);
+    drawTable(c); drawCharts(c, a, sig); wireCommon(); wireCourse(c); wireSim(c); if (!pend.length) wireHab(c);
   }
 
   const toolbarExport = () => `<div class="row no-print"><button class="btn azul sm" data-act="xlsx">⬇ Excel</button><button class="btn ghost sm" data-act="csv">⬇ CSV</button><button class="btn ghost sm" data-act="print">🖨 Imprimir / PDF</button></div>`;
@@ -222,10 +223,11 @@
       p.push(`Tu definitiva quedó en ${r.definitiva.toFixed(2)}, por debajo de la nota aprobatoria (${cfg.aprobatoria.toFixed(1)}), por lo que no aprobaste la asignatura.`);
     }
     if (habilita(r, h)) {
-      p.push(`Puedes presentar la habilitación entre el ${h.desde} y el ${h.hasta}.`);
+      p.push(`Importante: la habilitación está sujeta a verificación por parte de la Escuela, que confirma si la asignatura es o no habilitable. Si lo es, podrás presentarla entre el ${h.desde} y el ${h.hasta}, y el procedimiento es el siguiente:`);
       const pago = [h.valor && `valor a pagar: ${h.valor}`, h.medio && `cómo pagar: ${h.medio}`, h.comprobante && `envía el comprobante a: ${h.comprobante}`].filter(Boolean);
       if (pago.length) p.push('Información de pago:\n• ' + pago.join('\n• '));
       if (h.extra.trim()) p.push(h.extra.trim());
+      p.push('Si la Escuela determina que la asignatura no es habilitable, no hagas el pago.');
     }
     p.push('Quedo atento para ayudarte.'); return p.join('\n\n');
   }
@@ -239,7 +241,7 @@
       <div class="params-grid">${inp('desde', 'Desde', '3 de diciembre')}${inp('hasta', 'Hasta', '5 de diciembre')}${inp('valor', 'Valor a pagar', 'Ej.: $120.000')}${inp('medio', 'Medio de pago', 'Banco, cuenta o Nequi')}${inp('comprobante', 'Enviar comprobante a (opcional)', 'Correo o WhatsApp')}
       <label>¿Habilitan los que pierden por faltas?<select data-hab="porFaltas"><option value="no" ${h.porFaltas !== 'si' ? 'selected' : ''}>No</option><option value="si" ${h.porFaltas === 'si' ? 'selected' : ''}>Sí</option></select></label></div>
       <label class="habextra">Texto adicional (opcional)<textarea data-hab="extra" rows="2" placeholder="Ej.: indicaciones del banco, horario de la prueba…">${esc(h.extra || '')}</textarea></label>
-      <p class="hint">Estos datos se guardan solo en este navegador y se usan en los mensajes. Tus estudiantes no los ven hasta que tú copies el mensaje.</p></details></div>`;
+      <p class="hint"><b>Nota:</b> la habilitación está sujeta a verificación por parte de la Escuela (si la asignatura es o no habilitable); los mensajes lo aclaran. Estos datos se guardan solo en este navegador y se usan en los mensajes. Tus estudiantes no los ven hasta que tú copies el mensaje.</p></details></div>`;
     if (!lista.length) return html + `<div class="empty">✓ Nadie perdió la asignatura con los parámetros actuales.</div>`;
     html += `<div class="row no-print" style="margin:8px 0"><button class="btn azul sm" data-habcopyall="${esc(c.key)}">Copiar todos los mensajes</button></div><div class="alerts">` + lista.map(({ r, i }) => {
       const porF = r.asistencia === 'perdida';
@@ -281,6 +283,52 @@
   }
 
   // ---------- Tabla
+
+  // ---------- Simulador "¿y si…?" (interactivo, se recalcula al mover los controles)
+  state.sim = state.sim || {};
+  function simCalc(c, a, idx, extra, nota) {
+    const st = JSON.parse(JSON.stringify(c.students[idx])); const cortes = c.meta.cortes;
+    const pend = cortes.filter(k => st.cortes[k.id] == null || st.cortes[k.id].nota == null);
+    const tgt = (pend[0] || cortes[cortes.length - 1]).id;
+    st.cortes[tgt] = st.cortes[tgt] || { nota: null, faltas: 0 }; st.cortes[tgt].faltas = (st.cortes[tgt].faltas || 0) + extra;
+    if (pend.length) pend.forEach(k => { st.cortes[k.id] = st.cortes[k.id] || { nota: null, faltas: 0 }; st.cortes[k.id].nota = nota; });
+    const j = (state.just[c.key] || {})[st.dni];
+    return { base: a.rows[idx], sim: Analysis.analyzeStudent(st, c.meta, a.cfg, j), pend };
+  }
+  function simResultHtml(c, a, S) {
+    const { base, sim, pend } = S; const cfg = a.cfg;
+    const asis = sim.asistencia === 'perdida' ? '<b class="low">Pierde por inasistencia (nota 0.0)</b>' : sim.asistencia === 'riesgo' ? '<b style="color:var(--nar,#d97706)">En riesgo</b>' : '<b style="color:var(--ver,#16803c)">Normal</b>';
+    let fin;
+    if (sim.asistencia === 'perdida') fin = '<b class="low">0.0 (pierde por faltas)</b>';
+    else if (pend.length) { const d = sim.acumulado; fin = `<b>${d.toFixed(2)}</b> ${d + 1e-9 >= cfg.aprobatoria ? '→ <b style="color:var(--ver,#16803c)">Aprobaría</b>' : '→ <b class="low">No aprobaría</b>'}`; }
+    else fin = `<b>${(sim.definitiva).toFixed(2)}</b> ${sim.nota === 'aprobada' ? '→ <b style="color:var(--ver,#16803c)">Aprueba</b>' : '→ <b class="low">Reprueba</b>'}`;
+    const le = sim.quedan >= 0 ? `le quedan <b>${sim.quedan}</b>` : `se pasó por <b class="low">${-sim.quedan}</b>`;
+    return `<div class="simres"><div><span>Faltas</span><b>${sim.faltas}</b><small>(${sim.pct.toFixed(1)}%, máx. ${sim.max}; ${le})</small></div>
+      <div><span>Asistencia</span>${asis}<small>antes: ${base.faltas} falta(s)</small></div>
+      <div><span>${pend.length ? 'Definitiva proyectada' : 'Definitiva'}</span>${fin}<small>${pend.length ? 'con esa nota en ' + corteList(pend.map(k => k.id)) : ''}</small></div></div>`;
+  }
+  function simHtml(c, a, pend) {
+    const s = state.sim[c.key] || (state.sim[c.key] = { idx: 0, extra: 0, nota: 3 });
+    if (s.idx >= a.rows.length) s.idx = 0;
+    const opts = a.rows.map((r, i) => `<option value="${i}" ${i === s.idx ? 'selected' : ''}>${esc(dispName(r, i))}</option>`).join('');
+    const hasPend = pend.length > 0;
+    return `<h2 class="sec no-print">Simulador «¿y si…?»</h2><div class="card simcard no-print" id="simbox">
+      <p class="hint" style="margin-top:0">Mueve los controles y mira al instante qué pasaría con un estudiante. No cambia los datos reales.</p>
+      <div class="simctl"><label>Estudiante<select id="simSt">${opts}</select></label>
+      <label>Faltas adicionales: <b id="simExV">${s.extra}</b><input type="range" id="simEx" min="0" max="12" step="1" value="${s.extra}"></label>
+      ${hasPend ? `<label>Nota que saque en ${corteList(pend.map(x => x.id))}: <b id="simNV">${s.nota.toFixed(1)}</b><input type="range" id="simN" min="0" max="${a.cfg.notaMax}" step="0.1" value="${s.nota}"></label>` : ''}</div>
+      <div id="simOut">${simResultHtml(c, a, simCalc(c, a, s.idx, s.extra, s.nota))}</div></div>`;
+  }
+  function wireSim(c) {
+    const box = document.getElementById('simbox'); if (!box) return; const a = state.an[c.key], s = state.sim[c.key];
+    const upd = () => { document.getElementById('simExV').textContent = s.extra; const nv = document.getElementById('simNV'); if (nv) nv.textContent = s.nota.toFixed(1); document.getElementById('simOut').innerHTML = simResultHtml(c, a, simCalc(c, a, s.idx, s.extra, s.nota)); };
+    document.getElementById('simSt').onchange = e => { s.idx = +e.target.value; upd(); };
+    document.getElementById('simEx').oninput = e => { s.extra = +e.target.value; upd(); };
+    const n = document.getElementById('simN'); if (n) n.oninput = e => { s.nota = +e.target.value; upd(); };
+    // clic en un estudiante de la tabla lo lleva al simulador
+    const tb = document.getElementById('tbl'); if (tb) tb.addEventListener('click', e => { const td = e.target.closest('td:first-child'); if (!td || !td.parentElement.dataset.i) return; s.idx = +td.parentElement.dataset.i; document.getElementById('simSt').value = s.idx; upd(); box.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  }
+
   function drawTable(c) {
     const a = state.an[c.key]; const cortes = c.meta.cortes;
     const sigId = (cortes.find(x => a.rows.some(r => r.pendientes.includes(x.id))) || {}).id;
@@ -297,7 +345,7 @@
     const notaB = { aprobada: ['b-ok', 'Aprobada'], reprobada: ['b-critica', 'Reprobada'], asegurada: ['b-ok', 'Ya aprobó'], normal: ['b-gris', 'Normal'], exigente: ['b-media', 'Exigente'], critica: ['b-alta', 'Crítica'], imposible: ['b-critica', 'No alcanza'] };
     for (const { r, i } of list) {
       const needCell = r.pendientes.length ? `<b class="${r.nota === 'critica' || r.nota === 'imposible' ? 'low' : ''}">${esc(r.needLabel)}</b>` : f2(r.definitiva);
-      h += `<tr><td>${esc(dispName(r, i))}</td>${cortes.map(k => `<td class="${r.notas[k.id] != null && r.notas[k.id] < a.cfg.aprobatoria ? 'low' : ''}">${f1(r.notas[k.id])}</td>`).join('')}
+      h += `<tr data-i="${i}" title="Clic en el nombre para simular"><td class="simlink">${esc(dispName(r, i))}</td>${cortes.map(k => `<td class="${r.notas[k.id] != null && r.notas[k.id] < a.cfg.aprobatoria ? 'low' : ''}">${f1(r.notas[k.id])}</td>`).join('')}
         <td>${r.faltas}</td><td>${r.pct.toFixed(1)}%</td><td class="${r.quedan < 0 ? 'low' : ''}">${r.quedan}</td><td><span class="badge ${asisB[r.asistencia][0]}">${asisB[r.asistencia][1]}</span></td>
         <td>${f2(r.acumulado)}</td><td>${needCell}</td><td><span class="badge ${notaB[r.nota][0]}">${notaB[r.nota][1]}</span></td>
         <td><span class="badge b-${r.severidad}">${SEV[r.severidad].label}</span></td>
